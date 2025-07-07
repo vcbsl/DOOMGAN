@@ -1,0 +1,62 @@
+# config/config.yaml
+
+# --- General Settings ---
+project_name: "OcularMorph-DOOMGAN"
+manual_seed: 42
+ngpu: 1
+use_deterministic_algorithms: true
+device: "cuda:1"
+
+# --- Data Settings ---
+data:
+  image_root: "data/filtered_output"
+  landmark_json_path: "data/landmarks_GAN.json"
+  image_size: 256
+  nc: 3
+  workers: 4
+
+# --- Model Hyperparameters ---
+model:
+  nz: 200
+  ngf: 64
+  ndf: 64
+  num_landmarks: 19
+  landmark_feature_size: 128
+
+# --- Training Hyperparameters ---
+training:
+  num_epochs: 501
+  batch_size: 64
+  optimizer:
+    lr_g: 0.0002
+    lr_d: 0.00001
+    lr_e: 0.0002
+    lr_le: 0.0001
+    beta1: 0.5
+    beta2: 0.999
+    weight_decay: 0.00001
+  scheduler:
+    gamma_d: 0.9998
+    gamma_g: 0.9998
+    gamma_e: 0.9998
+    gamma_le: 0.9998
+  loss_weights:
+    gp: 10.0
+    initial_dynamic:
+      base: 50.0
+      ms_ssim: 30.0
+      perceptual: 50.0
+      reconstruction: 10.0
+      identity: 50.0
+      identity_diff: 40.0
+
+# --- Paths ---
+paths:
+  inputs:
+    arcface_model: "trained_models/resnet50_arcface.pth"
+    landmark_predictor_model: "trained_models/Ocular_LM_Generator.pth"
+  outputs:
+    G: "generator_models"
+    D: "discriminator_models"
+    E: "encoder_models"
+    LE: "landmark_encoder_models"

@@ -1,0 +1,8 @@
+# ignore all PyTorch checkpoints
+*.pth
+
+# ignore the entire data/filtered_output folder
+data/filtered_output/
+
+# ignore W&B logs
+wandb/
