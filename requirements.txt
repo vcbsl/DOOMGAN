@@ -1,0 +1,12 @@
+torch==2.2.1+cu118
+torchvision==0.17.1+cu118
+pyyaml==6.0.1
+wandb==0.17.0
+numpy==1.26.4
+pandas==2.2.1
+opencv-python-headless==4.9.0.80
+Pillow==10.2.0
+matplotlib==3.8.3
+streamlit==1.40.2
+gradio==5.35.0
+protobuf==3.19.0
