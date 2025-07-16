@@ -117,13 +117,17 @@ Follow these instructions to set up a dedicated environment for running this pro
     *   **The pre-trained Landmark Predictor model** (for the web applications and generation scripts).
 
     **Option 1: Manual Download (File-by-File)**
+
     You can download the necessary model files individually from the repository's main branch and place them in the correct directories.
+
     Go to the Following Link:
+
     ```bash
     https://huggingface.co/BharathK333/DOOMGAN/tree/main
     ```
 
     And place the models in the following structure within the project:
+
     ```bash
     g_epoch_450.pth -> place in generator_models/
     d_epoch_450.pth -> place in discriminator_models/
@@ -134,7 +138,9 @@ Follow these instructions to set up a dedicated environment for running this pro
     ```
 
     **Option 2: Automatic Download via Git LFS (Recommended)**
+
     **Step 1: Prepare Your Directory**
+
     This is the easiest method to download all required models directly into the correct folder structure.
     ```bash
     generator_models/
@@ -145,6 +151,7 @@ Follow these instructions to set up a dedicated environment for running this pro
     ```
 
     **Step 2: Install Git LFS and Clone the Repository**
+
     ```bash
     git lfs install
     git clone https://huggingface.co/BharathK333/DOOMGAN .
@@ -156,7 +163,9 @@ Follow these instructions to set up a dedicated environment for running this pro
     
     
 5. **Project Structure After Setup**
+
     After downloading the models using either method, the project directory should look like this:
+    
     ```bash
         DOOMGAN/
     ├── assets/
