@@ -1,1 +1,3 @@
 # Place LM Predictor and ArcFace Models Here
+resnet50_arcface.pth
+Ocular_LM_Generator.pth

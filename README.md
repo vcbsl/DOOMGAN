@@ -116,13 +116,90 @@ Follow these instructions to set up a dedicated environment for running this pro
     *   **The pre-trained ArcFace model** (for identity loss during training).
     *   **The pre-trained Landmark Predictor model** (for the web applications and generation scripts).
 
+    **Option 1: Manual Download (File-by-File)**
+    You can download the necessary model files individually from the repository's main branch and place them in the correct directories.
+    Go to the Following Link:
+    ```bash
+    https://huggingface.co/BharathK333/DOOMGAN/tree/main
+    ```
+
+    And place the models in the following structure within the project:
+    ```bash
+    g_epoch_450.pth -> place in generator_models/
+    d_epoch_450.pth -> place in discriminator_models/
+    e_epoch_450.pth -> place in encoder_models/
+    le_epoch_450.pth -> place in landmark_encoder_models/
+    resnet50_arcface.pth -> place in trained_models/
+    Ocular_LM_Generator.pth -> place in trained_models/
+    ```
+
+    **Option 2: Automatic Download via Git LFS (Recommended)**
+    **Step 1: Prepare Your Directory**
+    This is the easiest method to download all required models directly into the correct folder structure.
+    ```bash
+    generator_models/
+    discriminator_models/
+    encoder_models/
+    landmark_encoder_models/
+    trained_models/
+    ```
+
+    **Step 2: Install Git LFS and Clone the Repository**
+    ```bash
+    git lfs install
+    git clone https://huggingface.co/BharathK333/DOOMGAN .
+    ```
+
+    This will download all the model files and automatically place them in the correct directories.
+    We provide multiple checkpoints for each. The users can pick the best preferred ones. 
+    We have initialized the defaults of this workflow to epoch 450, which the users can modify if required.
+    
+    
+5. **Project Structure After Setup**
+    After downloading the models using either method, the project directory should look like this:
+    ```bash
+        DOOMGAN/
+    ├── assets/
+    │   └── ...
+    ├── config/
+    │   └── config.yaml
+    ├── data/
+    │   └── landmarks_GAN.json
+    ├── discriminator_models/
+    │   └── d_epoch_450.pth
+    │   └── ... (and other discriminator models)
+    ├── encoder_models/
+    │   └── e_epoch_450.pth
+    │   └── ... (and other encoder models)
+    ├── generator_models/
+    │   └── g_epoch_450.pth
+    │   └── ... (and other generator models)
+    ├── landmark_encoder_models/
+    │   └── le_epoch_450.pth
+    │   └── ... (and other landmark encoder models)
+    ├── models/
+    │   ├── __init__.py
+    │   ├── landmark_predictor.py
+    │   └── ...
+    ├── trained_models/
+    │   ├── Ocular_LM_Generator.pth
+    │   └── resnet50_arcface.pth
+    ├── .git/
+    ├── .gitignore
+    ├── app.py
+    ├── generate_morphs.py
+    ├── train.py
+    ├── README.md
+    └── requirements.txt
+    ```
+
 ---
 
 ## Usage
 
 ### 1. Training the Model
 
-Before training, configure your dataset paths and hyperparameters in `config/config.yaml`. Log in to your Weights & Biases account for experiment tracking.
+Before training, configure the dataset paths and hyperparameters in `config/config.yaml`. Log in to your Weights & Biases account for experiment tracking.
 
 ```bash
 # Login to W&B (optional but recommended)
@@ -157,7 +234,7 @@ python app.py
 ```
 
 ## Citation
-If you find our work useful in your research, please consider citing our paper:
+If you find our work useful, please consider citing our paper:
 ```bib
 
 ````
