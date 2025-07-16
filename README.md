@@ -165,9 +165,9 @@ Follow these instructions to set up a dedicated environment for running this pro
 5. **Project Structure After Setup**
 
     After downloading the models using either method, the project directory should look like this:
-    
+
     ```bash
-        DOOMGAN/
+    DOOMGAN/
     ├── assets/
     │   └── ...
     ├── config/
@@ -193,8 +193,6 @@ Follow these instructions to set up a dedicated environment for running this pro
     ├── trained_models/
     │   ├── Ocular_LM_Generator.pth
     │   └── resnet50_arcface.pth
-    ├── .git/
-    ├── .gitignore
     ├── app.py
     ├── generate_morphs.py
     ├── train.py
