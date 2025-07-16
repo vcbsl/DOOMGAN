@@ -136,11 +136,13 @@ python train.py
 Use the generate_morphs.py script to create a morphed image from two source images.
 
 ```bash
-python generate_morphs.py ^
-    --image1 "path/to/your/image1.png" ^
-    --image2 "path/to/your/image2.png" ^
-    --epoch 500 ^
-    --output "generated_morphs/output.png"
+python generate_morphs.py --image1 "path/to/your/image1.png" --image2 "path/to/your/image2.png" --epoch 500 --output "generated_morphs/output.png"
+```
+
+Below is an example run
+
+```bash
+python generate_morphs.py --image1 "assets/1144_r_1.png" --image2 "assets/1147_r_1.png" --epoch 450 --output "generated_morphs/1144_1147.png"
 ```
 
 ### 3. Running the Web Applications
@@ -156,3 +158,6 @@ python app.py
 
 ## Citation
 If you find our work useful in your research, please consider citing our paper:
+```bib
+
+````

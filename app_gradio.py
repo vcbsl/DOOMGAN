@@ -14,7 +14,7 @@ with open('config/config.yaml', 'r') as f:
     config = yaml.safe_load(f)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # NOTE: Change the default epoch here if needed
-models = load_all_models(config, epoch=150, device=device)
+models = load_all_models(config, epoch=450, device=device)
 print("--- Initialization Complete ---")
 
 # --- 2. Define the processing functions that Gradio will call ---

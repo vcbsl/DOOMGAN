@@ -157,13 +157,14 @@ def main():
                 torch.save(model.state_dict(), os.path.join(save_path, f'{name.lower()}_epoch_{epoch}.pth'))
             print(f"Saved models at epoch {epoch}")
             
-            with torch.no_grad():
-                fixed_noise = torch.randn(1, model_cfg['nz'], device=device)
-                fixed_lndmks = lndmks[0].unsqueeze(0) if 'lndmks' in locals() and lndmks.numel() > 0 else torch.rand(1, model_cfg['num_landmarks'] * 2, device=device)
-                fixed_lndmk_feats = models['LE'](fixed_lndmks)
-                sample_img = models['G'](fixed_noise, fixed_lndmk_feats)
-                save_image(sample_img, f"sample_epoch_{epoch}.png", normalize=True)
-                wandb.log({"generated_samples": wandb.Image(f"sample_epoch_{epoch}.png")})
+            # Uncomment to visualize the structure that the generator learns with random noise during training
+            # with torch.no_grad():
+                # fixed_noise = torch.randn(1, model_cfg['nz'], device=device)
+                # fixed_lndmks = lndmks[0].unsqueeze(0) if 'lndmks' in locals() and lndmks.numel() > 0 else torch.rand(1, model_cfg['num_landmarks'] * 2, device=device)
+                # fixed_lndmk_feats = models['LE'](fixed_lndmks)
+                # sample_img = models['G'](fixed_noise, fixed_lndmk_feats)
+                # save_image(sample_img, f"sample_epoch_{epoch}.png", normalize=True)
+                # wandb.log({"generated_samples": wandb.Image(f"sample_epoch_{epoch}.png")})
 
     wandb.finish()
 

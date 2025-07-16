@@ -1,164 +1,165 @@
 import os
 import yaml
-import json
 import torch
 import argparse
 from torchvision import transforms
-from torchvision.utils import save_image
 from PIL import Image
-import matplotlib.pyplot as plt
-
-# Local imports from our project structure
+import numpy as np
+from collections import OrderedDict
 from models import Generator, Encoder, LandmarkEncoder
-from utils import create_landmark_heatmaps
+from models.landmark_predictor import OcularLMGenerator
 
-def load_config(config_path='config/config.yaml'):
-    """Loads the project configuration from a YAML file."""
-    with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
+def remove_module_prefix(state_dict):
+    """Removes the 'module.' prefix from state dict keys if it exists."""
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:] if k.startswith('module.') else k
+        new_state_dict[name] = v
+    return new_state_dict
 
-def load_models(config, epoch, device):
-    """Loads and initializes the Generator, Encoder, and LandmarkEncoder for a specific epoch."""
+def create_landmark_heatmaps(landmarks_tensor, image_size, sigma=4):
+    """Generates Gaussian heatmaps from a NORMALIZED [0,1] landmark tensor."""
+    batch_size, num_coords = landmarks_tensor.shape
+    num_landmarks = num_coords // 2
+    landmarks = landmarks_tensor.view(batch_size, num_landmarks, 2) * (image_size - 1)
+    
+    x = torch.arange(0, image_size, device=landmarks_tensor.device).float()
+    y = torch.arange(0, image_size, device=landmarks_tensor.device).float()
+    xx, yy = torch.meshgrid(y, x, indexing='ij')
+    xx = xx.unsqueeze(0).unsqueeze(1).expand(batch_size, num_landmarks, -1, -1)
+    yy = yy.unsqueeze(0).unsqueeze(1).expand(batch_size, num_landmarks, -1, -1)
+    landmarks_x = landmarks[:, :, 0].unsqueeze(-1).unsqueeze(-1)
+    landmarks_y = landmarks[:, :, 1].unsqueeze(-1).unsqueeze(-1)
+    dist_sq = (xx - landmarks_y)**2 + (yy - landmarks_x)**2
+    heatmaps = torch.exp(-dist_sq / (2 * sigma**2))
+    return heatmaps
+
+def load_all_models(config, epoch, device):
+    """Loads all models with the correct dictionary keys from utils."""
     model_cfg = config['model']
     data_cfg = config['data']
-    paths_cfg = config['paths']['outputs']
+    paths_cfg = config['paths']
+    models = {}
 
-    # Initialize models
-    models = {
+    gan_model_classes = {
         'G': Generator(nz=model_cfg['nz'], ngf=model_cfg['ngf'], nc=data_cfg['nc'], landmark_feature_size=model_cfg['landmark_feature_size']),
         'E': Encoder(nc=data_cfg['nc'], ndf=model_cfg['ndf'], nz=model_cfg['nz'], num_landmarks=model_cfg['num_landmarks']),
         'LE': LandmarkEncoder(input_dim=model_cfg['num_landmarks'] * 2, output_dim=model_cfg['landmark_feature_size'])
     }
-    
-    # Helper to handle 'module.' prefix if model was saved with DataParallel
-    def remove_module_prefix(state_dict):
-        from collections import OrderedDict
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            name = k[7:] if k.startswith('module.') else k
-            new_state_dict[name] = v
-        return new_state_dict
-
-    # Load state dict for each model
-    for name, model in models.items():
-        model_path = os.path.join(paths_cfg[name], f'{name.lower()}_epoch_{epoch}.pth')
+    for name, model in gan_model_classes.items():
+        model_path = os.path.join(paths_cfg['outputs'][name], f'{name.lower()}_epoch_{epoch}.pth')
         print(f"Loading {name} model from: {model_path}")
         state_dict = torch.load(model_path, map_location=device)
-        state_dict = remove_module_prefix(state_dict)
-        model.load_state_dict(state_dict)
+        model.load_state_dict(remove_module_prefix(state_dict))
         model.to(device).eval()
-        
-    return models['G'], models['E'], models['LE']
+        if name == 'G': models['netG'] = model
+        elif name == 'E': models['netE'] = model
+        elif name == 'LE': models['landmark_encoder'] = model
 
-def load_image_and_landmarks(image_path, landmarks_dict, config):
-    """Loads a single image and its corresponding landmarks."""
-    data_cfg = config['data']
-    model_cfg = config['model']
+    lp_path = paths_cfg['inputs']['landmark_predictor_model']
+    print(f"Loading Landmark Predictor from: {lp_path}")
+    landmark_predictor = OcularLMGenerator().to(device)
+    state_dict_lp = torch.load(lp_path, map_location=device)
+    landmark_predictor.load_state_dict(remove_module_prefix(state_dict_lp))
+    landmark_predictor.eval()
+    models['landmark_predictor'] = landmark_predictor
 
-    # 1. Load and transform the image
+    return models
+
+def predict_landmarks_for_gan(image, landmark_predictor_model, device):
+    """The proven method to get high-quality landmarks."""
     transform = transforms.Compose([
-        transforms.Resize((data_cfg['image_size'], data_cfg['image_size'])),
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    image_transformed = transform(image).unsqueeze(0).to(device)
+    
+    with torch.no_grad():
+        landmarks = landmark_predictor_model(image_transformed).squeeze(0).cpu()
+        landmarks = landmarks[:38] # Explicitly take first 19 landmarks (38 coords)
+        landmarks = landmarks.view(-1, 2)
+        landmarks[:, 0] /= 256.0
+        landmarks[:, 1] /= 256.0
+        landmarks = landmarks.flatten()
+        
+    return landmarks.unsqueeze(0)
+
+def process_single_image(image_pil, config, device, models):
+    """Processes one image to get its GAN inputs (z and lf), using only the predictor."""
+    # 1. Get Landmarks
+    print("-> Predicting landmarks using model...")
+    landmarks_tensor = predict_landmarks_for_gan(image_pil, models['landmark_predictor'], device).to(device)
+
+    # 2. Transform image for the GAN
+    image_tensor_gan = transforms.Compose([
+        transforms.Resize((config['data']['image_size'], config['data']['image_size'])),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ])
-    image = Image.open(image_path).convert('RGB')
-    image_tensor = transform(image).unsqueeze(0) # Add batch dimension
+    ])(image_pil).unsqueeze(0).to(device)
 
-    # 2. Load and process landmarks
-    key = os.path.normpath(image_path).replace('\\', '/')
+    # 3. Create Heatmap from the landmarks
+    heatmap = create_landmark_heatmaps(landmarks_tensor, image_size=config['data']['image_size']).to(device)
     
-    landmarks_info = landmarks_dict.get(key)
-    if landmarks_info is None:
-        raise ValueError(f"Landmarks not found for image key: '{key}'")
+    # 4. Encode the image and landmarks
+    with torch.no_grad():
+        lf = models['landmark_encoder'](landmarks_tensor)
+        z = models['netE'](image_tensor_gan, heatmap)
+    
+    return z, lf
 
-    eye_landmarks = landmarks_info.get('Eye_landmarks', [])
-    iris_landmarks = landmarks_info.get('Iris_landmarks', [])
-    iris_center = landmarks_info.get('Iris_center', [])
-    all_landmarks = eye_landmarks + iris_landmarks + iris_center
-
-    if len(all_landmarks) < model_cfg['num_landmarks']:
-        all_landmarks += [[0, 0]] * (model_cfg['num_landmarks'] - len(all_landmarks))
-    else:
-        all_landmarks = all_landmarks[:model_cfg['num_landmarks']]
-
-    normalized_landmarks = [(x / data_cfg['image_size'], y / data_cfg['image_size']) for x, y in all_landmarks]
-    landmarks_flat = [coord for point in normalized_landmarks for coord in point]
-    landmarks_tensor = torch.tensor(landmarks_flat, dtype=torch.float32).unsqueeze(0) # Add batch dimension
-
-    return image_tensor, landmarks_tensor
-
+# --- MAIN SCRIPT EXECUTION ---
 def main(args):
-    """Main function to generate the morphed image."""
-    config = load_config(args.config)
+    """Main function to run the CLI morphing generation."""
+    config = yaml.safe_load(open(args.config, 'r'))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    print(f"Interpolation Alpha: {args.alpha}")
 
-    # 1. Load Models
-    netG, netE, landmark_encoder = load_models(config, args.epoch, device)
+    # 1. Load all models
+    models = load_all_models(config, args.epoch, device)
+    print("--- All models loaded successfully ---")
 
-    # 2. Load Data for both images
-    with open(config['data']['landmark_json_path'], 'r') as f:
-        landmarks_dict = json.load(f)
+    # 2. Load source images
+    image1_pil = Image.open(args.image1).convert('RGB')
+    image2_pil = Image.open(args.image2).convert('RGB')
 
-    img1, lndmks1 = load_image_and_landmarks(args.image1, landmarks_dict, config)
-    img2, lndmks2 = load_image_and_landmarks(args.image2, landmarks_dict, config)
+    # 3. Process each image using the single, reliable pipeline
+    print("\n--- Processing Image 1 ---")
+    z1, lf1 = process_single_image(image1_pil, config, device, models)
+    print("\n--- Processing Image 2 ---")
+    z2, lf2 = process_single_image(image2_pil, config, device, models)
+
+    # 4. Interpolate and Generate
+    print("\n--- Generating Morphed Image ---")
+    alpha = args.alpha
+    z_morph = (1 - alpha) * z1 + alpha * z2
+    lf_morph = (1 - alpha) * lf1 + alpha * lf2
     
-    img1, lndmks1 = img1.to(device), lndmks1.to(device)
-    img2, lndmks2 = img2.to(device), lndmks2.to(device)
-
-    # 3. Morphing Logic
     with torch.no_grad():
-        # Create heatmaps
-        heatmaps1 = create_landmark_heatmaps(lndmks1, config['data']['image_size'])
-        heatmaps2 = create_landmark_heatmaps(lndmks2, config['data']['image_size'])
-        
-        # Encode images to latent vectors (z)
-        z1 = netE(img1, heatmaps1)
-        z2 = netE(img2, heatmaps2)
-        
-        # Encode landmarks to feature vectors (lf)
-        lf1 = landmark_encoder(lndmks1)
-        lf2 = landmark_encoder(lndmks2)
+        morphed_image_tensor = models['netG'](z_morph, lf_morph)
+    
+    # Denormalize for saving
+    morphed_image = (morphed_image_tensor * 0.5 + 0.5).clamp(0, 1)
+    morphed_image_numpy = morphed_image.squeeze(0).permute(1, 2, 0).cpu().numpy()
 
-        # Interpolate in both latent space and landmark feature space
-        z_morph = (z1 + z2) / 2.0
-        lf_morph = (lf1 + lf2) / 2.0
-        
-        # Generate the morphed image
-        morphed_image = netG(z_morph, lf_morph)
-
-    # 4. Save and Display Results
+    # 5. Save the output
     output_dir = os.path.dirname(args.output)
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
+    if output_dir: os.makedirs(output_dir, exist_ok=True)
     
-    save_image(morphed_image, args.output, normalize=True)
-    print(f"Morphed image saved to '{args.output}'")
-    
-    if not args.no_display:
-        # Denormalize for visualization
-        def denormalize(tensor):
-            return (tensor.cpu().squeeze(0) * 0.5) + 0.5
-        
-        img1_viz = denormalize(img1).permute(1, 2, 0).numpy()
-        img2_viz = denormalize(img2).permute(1, 2, 0).numpy()
-        morphed_viz = denormalize(morphed_image).permute(1, 2, 0).numpy()
-        
-        plt.figure(figsize=(15, 5))
-        plt.subplot(1, 3, 1); plt.imshow(img1_viz); plt.title("Subject 1"); plt.axis('off')
-        plt.subplot(1, 3, 2); plt.imshow(morphed_viz); plt.title("Morphed"); plt.axis('off')
-        plt.subplot(1, 3, 3); plt.imshow(img2_viz); plt.title("Subject 2"); plt.axis('off')
-        plt.tight_layout()
-        plt.show()
+    final_image = Image.fromarray((morphed_image_numpy * 255).astype(np.uint8))
+    final_image.save(args.output)
+    print(f"\nMorphed image saved successfully to '{args.output}'")
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Generate a morphed ocular image from two source images.")
+    parser = argparse.ArgumentParser(description="Generate a high-fidelity morphed ocular image using the DOOMGAN pipeline.")
     parser.add_argument('--image1', type=str, required=True, help='Path to the first source image.')
     parser.add_argument('--image2', type=str, required=True, help='Path to the second source image.')
-    parser.add_argument('--epoch', type=int, required=True, help='The checkpoint epoch to load.')
+    parser.add_argument('--epoch', type=int, required=True, help='The checkpoint epoch to load for GAN models.')
     parser.add_argument('--output', type=str, default='generated_morphs/morphed_image.png', help='Path to save the output morphed image.')
     parser.add_argument('--config', type=str, default='config/config.yaml', help='Path to the configuration file.')
-    parser.add_argument('--no-display', action='store_true', help='Do not display the images using matplotlib.')
+    parser.add_argument('--alpha', type=float, default=0.5, help='Interpolation factor: 0.0 for image1, 1.0 for image2. Default: 0.5.')
     
     args = parser.parse_args()
     main(args)

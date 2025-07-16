@@ -15,7 +15,7 @@ def main():
 
     # --- Load Configuration and Models (Cached) ---
     @st.cache_resource
-    def setup_app(config_path='config/config.yaml', epoch=150):
+    def setup_app(config_path='config/config.yaml', epoch=450):
         print("--- Initializing App: Loading Config and Models ---")
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
@@ -26,7 +26,7 @@ def main():
 
     try:
         # NOTE: Change the default epoch here if needed
-        config, device, models = setup_app(epoch=150) 
+        config, device, models = setup_app(epoch=450) 
     except Exception as e:
         st.error(f"Fatal Error during application setup: {e}")
         st.error("Please ensure all model weights and paths in 'config/config.yaml' are correct and all required files (like 'models/landmark_predictor.py') are present.")
@@ -49,20 +49,19 @@ def main():
         """)
         col1, col2 = st.columns(2)
         with col1:
-            st.image("Images/Final Morph Teaser.jpg", caption="DOOMGAN Morphing Result", use_column_width=True)
+            st.image("assets/eye_morphing_comparison.png", caption="DOOMGAN Morphing Result", use_container_width=True)
         with col2:
-            st.image("Images/Final Model Architecture.jpg", caption="DOOMGAN Model Architecture", use_column_width=True)
+            st.image("assets/Intro GAN.jpg", caption="DOOMGAN Model Architecture", use_container_width=True)
 
     elif page == "Abstract":
         st.header("Abstract")
-        st.image("Images/Morph_Teaser.jpg", caption="Ocular Morphing Teaser", use_column_width=True)
+        st.image("assets/Final_Morph_Compare.jpg", caption="Ocular Morphing Teaser", use_container_width=True)
         st.write("""
             Ocular morphing is a technique that allows for the blending and transformation of eye images, along with the surrounding periocular region. 
             This process utilizes advanced computer vision techniques, including landmark detection and generative models, to create smooth transitions between different ocular appearances.
             Explore the various methods available in this application, including landmark-based morphing and our novel GAN approach.
         """)
     
-    # UI CHANGE: Renamed page from "LM-1" to "LM"
     elif page == "Classical Morph (LM)":
         st.header("Classical Morphing via Delaunay Triangulation")
         st.info("This method uses a pre-trained model to find eye landmarks, then warps triangles between the two images to create the morph.")
@@ -79,8 +78,8 @@ def main():
 
             st.write("Original Images:")
             c1, c2 = st.columns(2)
-            c1.image(img1, caption="Image 1", use_column_width=True)
-            c2.image(img2, caption="Image 2", use_column_width=True)
+            c1.image(img1, caption="Image 1", use_container_width=True)
+            c2.image(img2, caption="Image 2", use_container_width=True)
             
             if st.button("Generate Classical Morph"):
                 with st.spinner("Predicting landmarks and morphing..."):
@@ -88,10 +87,8 @@ def main():
                     landmarks2 = predict_landmarks_for_classical(img2, models['landmark_predictor'], device)
                     morphed_image = ocular_morph_classical(img1, img2, landmarks1, landmarks2)
                     st.subheader("Morphed Result")
-                    st.image(morphed_image, caption="Classical Morph", use_column_width=True)
+                    st.image(morphed_image, caption="Classical Morph", use_container_width=True)
     
-    # UI CHANGE: The "LM-2" page has been completely removed.
-
     elif page == "GAN Morph (DOOMGAN)":
         st.header("State-of-the-Art Morphing with DOOMGAN")
         st.info("This method uses our trained Encoder-Generator architecture to blend the images in a learned latent space for higher fidelity results.")
@@ -108,8 +105,8 @@ def main():
 
             st.write("Original Images:")
             c1, c2 = st.columns(2)
-            c1.image(img1, caption="Image 1", use_column_width=True)
-            c2.image(img2, caption="Image 2", use_column_width=True)
+            c1.image(img1, caption="Image 1", use_container_width=True)
+            c2.image(img2, caption="Image 2", use_container_width=True)
 
             alpha = st.slider(
                 "Interpolation Factor (Image 1 <-> Image 2)",
@@ -121,7 +118,7 @@ def main():
                 with st.spinner("Encoding images and generating morph..."):
                     morphed_image = morph_images_with_gan(img1, img2, config, device, models, alpha)
                     st.subheader("Morphed Result")
-                    st.image(morphed_image, caption=f"GAN Morph (Alpha: {alpha:.2f})", use_column_width=True)
+                    st.image(morphed_image, caption=f"GAN Morph (Alpha: {alpha:.2f})", use_container_width=True)
 
     elif page == "Survey":
         st.header("Survey Form")
