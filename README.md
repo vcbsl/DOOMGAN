@@ -253,4 +253,4 @@ If you find our work useful, please consider citing our paper:
 
 ## Acknowledgements
 This work is supported in part by the National Science Foundation (NSF) , United States award no. 2345561.
-![](Assets/NSF_Logo.png)
+![](assets/NSF_Logo.png)
