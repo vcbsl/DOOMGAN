@@ -2,7 +2,7 @@
 
 [![Conference](https://img.shields.io/badge/IJCB-2025-blue)](https://arxiv.org/abs/2507.17158)
 [![Morph Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-orange)](https://huggingface.co/datasets/BharathK333/DOOMGAN-Ocular-Morphs)
-[![DOOMGAN Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/BharathK333/DOOMGAN)
+[![DOOMGAN Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-red)](https://huggingface.co/spaces/BharathK333/DOOMGAN)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Official PyTorch implementation for our paper, **"DOOMGAN: High-Fidelity Dynamic Identity Obfuscation Ocular Generative Morphing"**, accepted at the IEEE International Joint Conference on Biometrics (IJCB) 2025.
